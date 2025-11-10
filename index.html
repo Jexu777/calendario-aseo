@@ -1,0 +1,504 @@
+<!-- Chosen Palette: Calm Harmony (Neutral Backgrounds with Teal/Blue Accent) -->
+<!-- Application Structure Plan: The structure is a Task-Oriented Dashboard, now streamlined to two main areas: 1) Status Panel (Current Week/Next Week - High priority info) and 2) Detailed View (The filterable, dynamic HTML table). This simplified structure maintains focus on the core task: "What is the status?" and "Where is my specific turn?", optimizing for quick navigation and data lookups. -->
+<!-- Visualization & Content Choices: Summary: Schedule Data -> Organize/Explore -> Dynamic HTML Table -> Filters (Month, Weekly Index) -> Essential for quick lookups -> HTML Table + Vanilla JS. Current/Next Turn -> Inform -> Key Findings Card/Dynamic Text -> Updates automatically based on today's date -> Provides immediate, high-priority status -> HTML/Tailwind + Vanilla JS. CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificador Interactivo de Aseo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .hidden-row { display: none; }
+    </style>
+</head>
+<body class="bg-neutral-50 text-gray-800 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center py-6 bg-white rounded-xl shadow-lg mb-8">
+            <h1 class="text-4xl font-extrabold text-teal-600 tracking-tight">Planificador Interactivo de Aseo</h1>
+            <div class="mt-4 flex flex-col sm:flex-row justify-center items-center gap-4">
+                <label for="yearSelector" class="font-semibold text-gray-700">Seleccionar Año:</label>
+                <select id="yearSelector" class="p-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 w-32" onchange="initApplication()">
+                    <!-- Opciones de año generadas en JS -->
+                </select>
+            </div>
+            <p class="mt-2 text-xl text-gray-500" id="header-subtitle">Gestión de Turnos de Alexander y María Jesús</p>
+        </header>
+
+        <!-- Section 1: Key Status -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-700 mb-4 border-b pb-2">Estado Rápido y Resumen</h2>
+            <p class="mb-6 text-gray-600">Esta sección proporciona una visión inmediata de la distribución de tareas y el estado actual del cronograma.</p>
+
+            <div id="status-cards" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Card 1: Next Closest Turn (The user's primary focus) -->
+                <div id="card-upcoming-1" class="bg-blue-100 p-6 rounded-lg shadow-md border-t-4 border-blue-500">
+                    <p class="text-sm font-semibold text-blue-600 uppercase mb-2">Próximo Turno (Más Cercano)</p>
+                    <div id="current-turn" class="text-3xl font-bold text-blue-800">Cargando...</div>
+                    <p id="current-dates" class="text-sm text-gray-600 mt-1">Fechas: --</p>
+                </div>
+                
+                <!-- Card 2: The Turn After Next -->
+                <div id="card-upcoming-2" class="bg-indigo-100 p-6 rounded-lg shadow-md border-t-4 border-indigo-500">
+                    <p class="text-sm font-semibold text-indigo-600 uppercase mb-2">Siguiente Turno</p>
+                    <div id="next-turn" class="text-3xl font-bold text-indigo-800">Cargando...</div>
+                    <p id="next-dates" class="text-sm text-gray-600 mt-1">Fechas: --</p>
+                </div>
+
+                <!-- Card 3: Currently Active Turn -->
+                <div id="card-active" class="bg-teal-100 p-6 rounded-lg shadow-md border-t-4 border-teal-500">
+                    <p class="text-sm font-semibold text-teal-600 uppercase mb-2">Turno ACTIVO (Si aplica)</p>
+                    <div id="total-turns" class="text-3xl font-bold text-teal-800">Cargando...</div>
+                    <p class="text-sm text-gray-600 mt-1" id="active-status">Calculando balance...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Interactive Schedule -->
+        <section>
+            <h2 class="text-2xl font-bold text-gray-700 mb-4 border-b pb-2">Exploración Detallada del Calendario</h2>
+            <p class="mb-6 text-gray-600">Utiliza los filtros a continuación para buscar rápidamente un fin de semana específico por mes o por su número de ocurrencia mensual. La tabla muestra los detalles completos del cronograma generado.</p>
+
+            <!-- Filters -->
+            <div class="flex flex-col md:flex-row gap-4 mb-6 bg-white p-4 rounded-lg shadow-md">
+                
+                <div class="flex flex-col w-full md:w-1/3">
+                    <label for="monthFilter" class="text-sm font-medium text-gray-700 mb-1">Filtrar por Mes:</label>
+                    <select id="monthFilter" class="p-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500">
+                        <option value="Todos">Todos</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col w-full md:w-1/3">
+                    <label for="weekNumFilter" class="text-sm font-medium text-gray-700 mb-1">Filtrar por F.S. (Mes) #:</label>
+                    <select id="weekNumFilter" class="p-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500">
+                        <option value="Todos">Todos</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col w-full md:w-1/3 justify-end">
+                    <button id="exportCsvBtn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 mt-4 md:mt-0">
+                        Exportar a CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- Schedule Table -->
+            <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mes</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">F.S. (Mes) #</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sábado</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Domingo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Responsable</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Table content dynamically loaded here -->
+                        <tr><td colspan="5" class="p-4 text-center text-gray-500">Generando calendario...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="mt-12 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
+            <p>Datos generados dinámicamente.</p>
+        </footer>
+
+    </div>
+
+    <script>
+        const NAME_A = "Alexander";
+        const NAME_B = "María Jesús";
+        const MONTH_NAMES = [
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ];
+        
+        // La fecha de inicio original (10 de noviembre de 2025) como marcador.
+        const FIXED_START_CALC_DATE = new Date(2025, 10, 10); 
+        
+        let SCHEDULE_DATA = [];
+        let monthMap = {}; 
+        
+        function dateStringToDate(dateString) {
+            const parts = dateString.split('/');
+            // Expecting DD/MM/YYYY. Date constructor takes YYYY, MM-1, DD
+            const year = parseInt(parts[2], 10);
+            const month = parseInt(parts[1], 10) - 1; 
+            const day = parseInt(parts[0], 10);
+            return new Date(year, month, day);
+        }
+
+        function populateYearSelector() {
+            const yearSelector = document.getElementById('yearSelector');
+            const currentYear = new Date().getFullYear();
+            const startYear = 2025; // Establecer el mínimo de inicio en 2025
+            const endYear = currentYear + 5; 
+
+            for (let y = startYear; y <= endYear; y++) {
+                const option = document.createElement('option');
+                option.value = y;
+                option.textContent = y;
+                yearSelector.appendChild(option);
+            }
+            
+            // Si hoy es después de junio, sugerir el próximo año. De lo contrario, el actual.
+            const suggestedYear = (new Date().getMonth() > 5) ? currentYear + 1 : currentYear; 
+            // Usamos 2026 como base predeterminada, a menos que el año actual sea posterior.
+            yearSelector.value = Math.max(2026, suggestedYear); 
+        }
+
+        function initApplication() {
+            generateDynamicScheduleData();
+            populateFilters();
+            filterSchedule(); 
+            updateStatusCards();
+        }
+        
+        /**
+         * Calcula el número de fines de semana entre FIXED_START_CALC_DATE (Nov 10, 2025)
+         * y el 31 de diciembre del año anterior al año de consulta (queryYear - 1).
+         * Esto establece el desfase (offset) para asegurar que el turno continúe correctamente.
+         */
+        function calculateGlobalOffset(queryYear) {
+            if (queryYear <= FIXED_START_CALC_DATE.getFullYear()) {
+                return 0;
+            }
+
+            let globalWeekendCount = 0;
+            let currentDate = new Date(FIXED_START_CALC_DATE);
+            
+            // Avanzar hasta el primer Sábado en o después de la fecha de inicio fijo (Nov 10, 2025)
+            while (currentDate.getDay() !== 6) { 
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            const endLimit = new Date(queryYear, 0, 1); // 1 de Enero del año de consulta
+
+            // Contar todos los fines de semana completos hasta el 31 de Diciembre del año anterior
+            while (currentDate < endLimit) {
+                // El sábado es currentDate, el domingo es el día siguiente
+                const sunday = new Date(currentDate);
+                sunday.setDate(currentDate.getDate() + 1);
+                
+                // Asegurarse de que el domingo no se pase del límite de fecha
+                if (sunday < endLimit) {
+                    globalWeekendCount++;
+                }
+
+                // Avanzar al próximo Sábado (7 días después)
+                currentDate.setDate(currentDate.getDate() + 7); 
+            }
+            
+            return globalWeekendCount;
+        }
+
+
+        // Función para generar el cronograma dinámicamente
+        function generateDynamicScheduleData() {
+            SCHEDULE_DATA = [];
+            monthMap = {};
+            let weekendIndex = 0;
+            const starter = NAME_B; // COMIENZA MARÍA JESÚS
+            
+            const year = parseInt(document.getElementById('yearSelector').value);
+            
+            // 1. CALCULAR OFFSET GLOBAL
+            const globalWeekendIndexOffset = calculateGlobalOffset(year);
+            
+            // 2. ESTABLECER FECHA DE INICIO DE CÁLCULO
+            let startDate;
+            if (year === FIXED_START_CALC_DATE.getFullYear()) {
+                // Si es 2025, el cálculo comienza después del 10 de Nov de 2025
+                startDate = new Date(FIXED_START_CALC_DATE); 
+            } else {
+                // Para cualquier otro año, comenzamos el 1 de Enero de ese año
+                startDate = new Date(year, 0, 1); 
+            }
+            
+            let currentDate = new Date(startDate);
+            
+            // Avanzar hasta el primer Sábado (día 6) en o después de la fecha de inicio
+            while (currentDate.getDay() !== 6) { 
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            // Determina a quién le toca el turno según el índice global
+            const getAssignedPerson = (index, starter) => {
+                // Usamos (index + offset) para mantener la secuencia a través de los años.
+                const isStarterTurn = ((index + globalWeekendIndexOffset) % 2 === 0);
+                if (isStarterTurn) {
+                    return starter;
+                } else {
+                    return (starter === NAME_A) ? NAME_B : NAME_A;
+                }
+            };
+            
+            let monthlyWeekendIndexMap = {}; 
+
+            // 3. GENERAR CRONOGRAMA
+            // Generar turnos hasta el 31 de diciembre del año seleccionado
+            while (currentDate.getFullYear() === year) {
+                const month = currentDate.getMonth();
+                const saturday = new Date(currentDate);
+                const sunday = new Date(currentDate);
+                sunday.setDate(saturday.getDate() + 1);
+
+                // Asegurar que no pasamos el límite de fecha (31 de dic del año seleccionado)
+                if (saturday.getFullYear() !== year) break;
+                
+                // Si el año es 2025, debemos omitir turnos antes de la fecha de inicio fija (Nov 10)
+                if (year === FIXED_START_CALC_DATE.getFullYear() && saturday < FIXED_START_CALC_DATE) {
+                    currentDate.setDate(currentDate.getDate() + 7);
+                    continue; 
+                }
+
+                const assignedPerson = getAssignedPerson(weekendIndex, starter);
+                const monthName = MONTH_NAMES[month];
+
+                // Contar índice mensual
+                const monthKey = `${year}-${month}`;
+                monthlyWeekendIndexMap[monthKey] = (monthlyWeekendIndexMap[monthKey] || 0) + 1;
+                const monthlyWeekendIndex = monthlyWeekendIndexMap[monthKey];
+                
+                // Formato DD/MM/YYYY
+                const formatDate = (date) => `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+
+                SCHEDULE_DATA.push({
+                    Mes: monthName,
+                    'Fin de Semana (Mes) #': monthlyWeekendIndex,
+                    Sábado: formatDate(saturday), 
+                    Domingo: formatDate(sunday), 
+                    Responsable: assignedPerson
+                });
+
+                // Guardamos el índice global (aunque no se muestre) para el balance y el CSV si es necesario.
+                SCHEDULE_DATA[SCHEDULE_DATA.length - 1]['Fin de Semana Global #'] = weekendIndex + globalWeekendIndexOffset + 1;
+
+
+                monthMap[monthName] = true;
+                
+                weekendIndex++;
+                
+                // Avanzar al próximo Sábado (7 días después)
+                currentDate.setDate(currentDate.getDate() + 7); 
+            }
+            
+            // Actualizar título del encabezado
+            document.getElementById('header-subtitle').textContent = `Gestión de Turnos de Alexander y María Jesús (${year}). Inicia: ${starter}`;
+        }
+        
+
+        function populateFilters() {
+            const monthFilter = document.getElementById('monthFilter');
+            
+            monthFilter.innerHTML = '<option value="Todos">Todos</option>';
+            
+            Object.keys(monthMap).forEach(month => {
+                const option = document.createElement('option');
+                option.value = month;
+                option.textContent = month;
+                monthFilter.appendChild(option);
+            });
+        }
+
+        function filterSchedule() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const selectedWeekNum = document.getElementById('weekNumFilter').value;
+            const body = document.getElementById('scheduleBody');
+            body.innerHTML = ''; 
+
+            const filteredData = SCHEDULE_DATA.filter(item => {
+                const monthMatch = selectedMonth === 'Todos' || item['Mes'] === selectedMonth;
+                const weekMatch = selectedWeekNum === 'Todos' || String(item['Fin de Semana (Mes) #']) === selectedWeekNum;
+                return monthMatch && weekMatch;
+            });
+
+            if (filteredData.length === 0) {
+                body.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No se encontraron turnos con los filtros seleccionados.</td></tr>`;
+                return;
+            }
+
+            filteredData.forEach(item => {
+                const row = body.insertRow();
+                row.className = 'hover:bg-gray-50';
+                
+                // Array de claves en el orden de la tabla
+                const keys = ['Mes', 'Fin de Semana (Mes) #', 'Sábado', 'Domingo', 'Responsable'];
+
+                keys.forEach(key => {
+                    const cell = row.insertCell();
+                    cell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-900';
+                    cell.textContent = item[key];
+                    if (key === 'Responsable') {
+                        cell.classList.add('font-semibold');
+                        cell.classList.add(item[key] === NAME_A ? 'text-teal-600' : 'text-blue-600');
+                    }
+                });
+            });
+        }
+
+        function updateStatusCards() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let activeTurn = null; 
+            let upcomingTurn1 = null; 
+            let upcomingTurn2 = null; 
+
+            const resetCards = (ids) => {
+                ids.forEach(id => {
+                    const card = document.getElementById(id);
+                    card.className = card.className.split(' ').filter(c => !c.startsWith('bg-') && !c.startsWith('border-')).join(' '); 
+                    card.classList.add('bg-blue-100', 'border-t-4', 'border-blue-500'); // Default styling
+                });
+            };
+            resetCards(['card-upcoming-1', 'card-upcoming-2', 'card-active']);
+
+            for (let i = 0; i < SCHEDULE_DATA.length; i++) {
+                const item = SCHEDULE_DATA[i];
+                const satDate = dateStringToDate(item['Sábado']);
+                const sunDate = dateStringToDate(item['Domingo']);
+                
+                if (today >= satDate && today <= sunDate) {
+                    activeTurn = item;
+                }
+                
+                // Solo miramos los turnos del año seleccionado para el estado "próximo"
+                const selectedYear = parseInt(document.getElementById('yearSelector').value);
+                if (satDate > today && satDate.getFullYear() === selectedYear) { 
+                    if (!upcomingTurn1) {
+                        upcomingTurn1 = item;
+                    } else if (!upcomingTurn2) {
+                        upcomingTurn2 = item;
+                        break; 
+                    }
+                }
+            }
+            
+            // CARD 1: Próximo Turno (Más Cercano)
+            const card1Div = document.getElementById('card-upcoming-1');
+            const turn1Div = document.getElementById('current-turn');
+            const dates1Div = document.getElementById('current-dates');
+
+            if (upcomingTurn1) {
+                turn1Div.textContent = upcomingTurn1['Responsable'];
+                dates1Div.textContent = `Fechas: ${upcomingTurn1['Sábado']} - ${upcomingTurn1['Domingo']}`;
+                card1Div.classList.remove('bg-blue-100', 'border-blue-500');
+                card1Div.classList.add('bg-green-100', 'border-green-500'); 
+            } else {
+                turn1Div.textContent = 'Fin de Turnos';
+                dates1Div.textContent = 'El cronograma ha finalizado.';
+                card1Div.classList.remove('bg-blue-100', 'border-blue-500');
+                card1Div.classList.add('bg-gray-100', 'border-gray-500');
+            }
+            
+            // CARD 2: Siguiente Turno 
+            const card2Div = document.getElementById('card-upcoming-2');
+            const turn2Div = document.getElementById('next-turn');
+            const dates2Div = document.getElementById('next-dates');
+            
+            if (upcomingTurn2) {
+                turn2Div.textContent = upcomingTurn2['Responsable'];
+                dates2Div.textContent = `Fechas: ${upcomingTurn2['Sábado']} - ${upcomingTurn2['Domingo']}`;
+                card2Div.classList.remove('bg-blue-100', 'border-blue-500');
+                card2Div.classList.add('bg-indigo-100', 'border-indigo-500');
+            } else {
+                turn2Div.textContent = 'Finalizado';
+                dates2Div.textContent = 'No hay más turnos pendientes.';
+                card2Div.classList.remove('bg-blue-100', 'border-blue-500');
+                card2Div.classList.add('bg-gray-100', 'border-gray-500');
+            }
+
+            // CARD 3: Turno ACTIVO
+            const card3Div = document.getElementById('card-active');
+            const activeDiv = document.getElementById('total-turns');
+            const activeStatusDiv = document.getElementById('active-status');
+            
+            const totalTurns = SCHEDULE_DATA.length;
+            const alexanderTurns = SCHEDULE_DATA.filter(item => item.Responsable === NAME_A).length;
+            const mariaJesusTurns = totalTurns - alexanderTurns;
+
+            if (activeTurn) {
+                activeDiv.textContent = activeTurn['Responsable'];
+                activeStatusDiv.textContent = `¡Limpiando AHORA! ${activeTurn['Sábado']} - ${activeTurn['Domingo']}`;
+                card3Div.classList.remove('bg-blue-100', 'border-blue-500');
+                card3Div.classList.add('bg-yellow-100', 'border-yellow-500');
+            } else {
+                 activeDiv.textContent = `${totalTurns} Turnos`;
+                 activeStatusDiv.textContent = `Balance: A:${alexanderTurns}, MJ:${mariaJesusTurns}`;
+                 card3Div.classList.remove('bg-blue-100', 'border-blue-500');
+                 card3Div.classList.add('bg-teal-100', 'border-teal-500');
+            }
+            
+        }
+        
+        function exportToCSV() {
+            const data = SCHEDULE_DATA;
+
+            if (!data || data.length === 0) {
+                return;
+            }
+            
+            const year = document.getElementById('yearSelector').value;
+
+            // EXCLUIMOS "Fin de Semana Global #" de los encabezados, aunque existe en el objeto para el cálculo.
+            const headers = ['Mes', 'Fin de Semana (Mes) #', 'Sábado', 'Domingo', 'Responsable'];
+            let csvContent = headers.join(";") + "\n";
+            
+            data.forEach(row => {
+                const values = headers.map(header => {
+                    let value = row[header];
+                    // El campo 'Fin de Semana Global #' ya no está en el array de headers para mapeo
+                    return `"${String(value).replace(/"/g, '""')}"`;
+                });
+                csvContent += values.join(";") + "\n";
+            });
+
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Planificador_Aseo_${year}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- INICIALIZACIÓN DE LA APLICACIÓN ---
+        
+        // 1. Llenar el selector de año inmediatamente al cargar el script.
+        populateYearSelector();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 2. Ejecutar la lógica principal una vez que el DOM está listo.
+            initApplication();
+
+            // 3. Configurar listeners de interacción.
+            document.getElementById('monthFilter').addEventListener('change', filterSchedule);
+            document.getElementById('weekNumFilter').addEventListener('change', filterSchedule);
+            document.getElementById('exportCsvBtn').addEventListener('click', exportToCSV);
+        });
+        
+        // Exponer la función initApplication para el onchange del selector
+        window.initApplication = initApplication; 
+    </script>
+</body>
+</html>
